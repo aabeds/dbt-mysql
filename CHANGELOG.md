@@ -1,5 +1,30 @@
 ## Unreleased (TBD)
 
+## dbt-mysql 1.8.0a1 (May 30, 2026)
+
+### Features
+- Support dbt v1.8 (upgrade branch `upgrade/1.8.0`)
+- Add `dbt-adapters` and `dbt-common` as install dependencies for the adapter package split in dbt 1.8
+
+### Fixes
+- Fix `dbt docs generate` when catalog rows have a null `table_database` (MySQL/MariaDB have no database dimension)
+- Fix unit tests for dbt 1.8 adapter initialization (multiprocessing context)
+
+### Under the hood
+- Migrate imports from `dbt.contracts.*` / `dbt.exceptions` to `dbt.adapters.*` / `dbt_common.*`
+- Refactor credentials to plain dataclasses (align with dbt-adapters)
+- Remove legacy Python `get_catalog(manifest)` overrides; use dbt 1.8 macro-based catalog path
+- Add shared `catalog_filter_table_for_no_database` helper for mysql, mysql5, and mariadb
+- Pin dev dependencies to PyPI packages (`dbt-core~=1.8.0`, `dbt-tests-adapter>=1.8.0`)
+- Fix mypy/flake8 typing issues in adapter `impl.py` and `connections.py`
+
+### Contributors
+- [@aabeds](https://github.com/aabeds)
+
+## dbt-mysql 1.7.0 and earlier (see git history)
+
+The entries below were accumulated before per-version CHANGELOG sections were maintained.
+
 ### Features
 - Migrate CircleCI to GitHub Actions ([#120](https://github.com/dbeatty10/dbt-mysql/issues/120))
 - Support dbt v1.4 ([#146](https://github.com/dbeatty10/dbt-mysql/pull/146))

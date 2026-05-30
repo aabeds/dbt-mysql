@@ -1,14 +1,14 @@
-# install latest changes in dbt-core
-# TODO: how to automate switching from develop to version branches?
-git+https://github.com/dbt-labs/dbt-core.git@1.7.latest#egg=dbt-core&subdirectory=core
-git+https://github.com/dbt-labs/dbt-core.git@1.7.latest#egg=dbt-tests-adapter&subdirectory=tests/adapter
+# dbt 1.8 — PyPI pins (adapter split)
+dbt-core~=1.8.0
+dbt-adapters>=1.8.0,<1.9.0
+dbt-common>=1.0.4,<2.0
+dbt-tests-adapter>=1.8.0,<1.9.0
 
 # if version 1.x or greater -> pin to major version
 # if version 0.x -> pin to minor
 black~=24.3
 bumpversion~=0.6.0
 ddtrace~=2.3
-jsonschema<=4.17
 flake8~=6.1
 flaky~=3.7
 freezegun~=1.3

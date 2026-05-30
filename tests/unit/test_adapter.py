@@ -1,6 +1,7 @@
+import multiprocessing
 import unittest
 from unittest import mock
-import dbt.flags as flags
+
 from dbt.adapters.mysql import MySQLAdapter
 
 from .utils import config_from_parts_or_dicts, mock_connection
@@ -8,8 +9,6 @@ from .utils import config_from_parts_or_dicts, mock_connection
 
 class TestMySQLAdapter(unittest.TestCase):
     def setUp(self):
-        flags.STRICT_MODE = True
-
         profile_cfg = {
             "outputs": {
                 "test": {
@@ -38,11 +37,12 @@ class TestMySQLAdapter(unittest.TestCase):
 
         self.config = config_from_parts_or_dicts(project_cfg, profile_cfg)
         self._adapter = None
+        self.mp_context = multiprocessing.get_context("spawn")
 
     @property
     def adapter(self):
         if self._adapter is None:
-            self._adapter = MySQLAdapter(self.config)
+            self._adapter = MySQLAdapter(self.config, self.mp_context)
         return self._adapter
 
     @mock.patch("dbt.adapters.mysql.connections.mysql.connector")

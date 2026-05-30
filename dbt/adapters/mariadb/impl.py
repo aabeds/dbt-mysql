@@ -1,23 +1,17 @@
-from concurrent.futures import Future
-from dataclasses import asdict
-from typing import Optional, List, Dict, Any, Iterable, Tuple
+from typing import FrozenSet, Optional, List, Tuple
 import agate
 
-import dbt
-import dbt.exceptions
-
-from dbt.adapters.base.impl import catch_as_completed
-from dbt.adapters.sql import SQLAdapter
-from dbt.adapters.mariadb import MariaDBConnectionManager
-from dbt.adapters.mariadb import MariaDBRelation
-from dbt.adapters.mariadb import MariaDBColumn
-from dbt.adapters.base import BaseRelation
-from dbt.contracts.graph.nodes import ConstraintType
+from dbt.adapters.base.column import Column as BaseColumn
 from dbt.adapters.base.impl import ConstraintSupport
-from dbt.contracts.graph.manifest import Manifest
-from dbt.clients.agate_helper import DEFAULT_TYPE_TESTER
-from dbt.events import AdapterLogger
-from dbt.utils import executor
+from dbt.adapters.base import BaseRelation
+from dbt.adapters.catalog_filter import catalog_filter_table_for_no_database
+from dbt.adapters.events.logging import AdapterLogger
+from dbt.adapters.mariadb.column import MariaDBColumn
+from dbt.adapters.mariadb.connections import MariaDBConnectionManager
+from dbt.adapters.mariadb.relation import MariaDBRelation
+from dbt.adapters.sql import SQLAdapter
+from dbt_common.contracts.constraints import ConstraintType
+from dbt_common.exceptions import DbtRuntimeError
 
 logger = AdapterLogger("mysql")
 
@@ -44,6 +38,12 @@ class MariaDBAdapter(SQLAdapter):
     }
 
     @classmethod
+    def _catalog_filter_table(
+        cls, table: agate.Table, used_schemas: FrozenSet[Tuple[str, str]]
+    ) -> agate.Table:
+        return catalog_filter_table_for_no_database(table, used_schemas)
+
+    @classmethod
     def date_function(cls):
         return "current_date()"
 
@@ -61,7 +61,7 @@ class MariaDBAdapter(SQLAdapter):
         kwargs = {"schema_relation": schema_relation}
         try:
             results = self.execute_macro(LIST_RELATIONS_MACRO_NAME, kwargs=kwargs)
-        except dbt.exceptions.DbtRuntimeError as e:
+        except DbtRuntimeError as e:
             errmsg = getattr(e, "msg", "")
             if f"MariaDB database '{schema_relation}' not found" in errmsg:
                 return []
@@ -73,7 +73,7 @@ class MariaDBAdapter(SQLAdapter):
         relations = []
         for row in results:
             if len(row) != 4:
-                raise dbt.exceptions.DbtRuntimeError(
+                raise DbtRuntimeError(
                     "Invalid value from "
                     f'"mariadb__list_relations_without_caching({kwargs})", '
                     f"got {len(row)} values, expected 4"
@@ -84,20 +84,9 @@ class MariaDBAdapter(SQLAdapter):
 
         return relations
 
-    def get_columns_in_relation(self, relation: MariaDBRelation) -> List[MariaDBColumn]:
-        rows: List[agate.Row] = super().get_columns_in_relation(relation)
-        return self.parse_show_columns(relation, rows)
-
-    def _get_columns_for_catalog(self, relation: MariaDBRelation) -> Iterable[Dict[str, Any]]:
-        columns = self.get_columns_in_relation(relation)
-
-        for column in columns:
-            # convert MariaDBColumns into catalog dicts
-            as_dict = asdict(column)
-            as_dict["column_name"] = as_dict.pop("column", None)
-            as_dict["column_type"] = as_dict.pop("dtype")
-            as_dict["table_database"] = None
-            yield as_dict
+    def get_columns_in_relation(self, relation: BaseRelation) -> List[MariaDBColumn]:  # type: ignore[override]
+        columns: List[BaseColumn] = super().get_columns_in_relation(relation)
+        return self.parse_show_columns(relation, columns)
 
     def get_relation(
         self, database: Optional[str], schema: str, identifier: str
@@ -108,7 +97,7 @@ class MariaDBAdapter(SQLAdapter):
         return super().get_relation(database, schema, identifier)
 
     def parse_show_columns(
-        self, relation: MariaDBRelation, raw_rows: List[agate.Row]
+        self, relation: BaseRelation, raw_columns: List[BaseColumn]
     ) -> List[MariaDBColumn]:
         return [
             MariaDBColumn(
@@ -118,57 +107,12 @@ class MariaDBAdapter(SQLAdapter):
                 table_type=relation.type,
                 table_owner=None,
                 table_stats=None,
-                column=column.column,
+                column=col.column,
                 column_index=idx,
-                dtype=column.dtype,
+                dtype=col.dtype,
             )
-            for idx, column in enumerate(raw_rows)
+            for idx, col in enumerate(raw_columns)
         ]
-
-    def get_catalog(self, manifest: Manifest) -> Tuple[agate.Table, List[Exception]]:
-        schema_map = self._get_catalog_schemas(manifest)
-
-        if len(schema_map) > 1:
-            raise dbt.exceptions.CompilationError(
-                f"Expected only one database in get_catalog, found " f"{list(schema_map)}"
-            )
-
-        with executor(self.config) as tpe:
-            futures: List[Future[agate.Table]] = []
-            for info, schemas in schema_map.items():
-                for schema in schemas:
-                    futures.append(
-                        tpe.submit_connected(
-                            self,
-                            schema,
-                            self._get_one_catalog,
-                            info,
-                            [schema],
-                            manifest,
-                        )
-                    )
-            catalogs, exceptions = catch_as_completed(futures)
-        return catalogs, exceptions
-
-    def _get_one_catalog(
-        self,
-        information_schema,
-        schemas,
-        manifest,
-    ) -> agate.Table:
-        if len(schemas) != 1:
-            raise dbt.exceptions.CompilationError(
-                f"Expected only one schema in mariadb _get_one_catalog, found " f"{schemas}"
-            )
-
-        database = information_schema.database
-        schema = list(schemas)[0]
-
-        columns: List[Dict[str, Any]] = []
-        for relation in self.list_relations(database, schema):
-            logger.debug("Getting table schema for relation {}", str(relation))
-            columns.extend(self._get_columns_for_catalog(relation))  # type: ignore[arg-type]
-        return agate.Table.from_object(columns, column_types=DEFAULT_TYPE_TESTER)
 
     def check_schema_exists(self, database, schema):
         results = self.execute_macro(LIST_SCHEMAS_MACRO_NAME, kwargs={"database": database})
@@ -207,9 +151,7 @@ class MariaDBAdapter(SQLAdapter):
         elif location == "prepend":
             return f"concat({value}, '{add_to}')"
         else:
-            raise dbt.exceptions.DbtRuntimeError(
-                f'Got an unexpected location value of "{location}"'
-            )
+            raise DbtRuntimeError(f'Got an unexpected location value of "{location}"')
 
     def get_rows_different_sql(
         self,
