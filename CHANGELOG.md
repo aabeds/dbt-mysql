@@ -8,6 +8,7 @@
 ### Under the hood
 - Bump `dbt-core` to `~=1.10.0` and `dbt-tests-adapter` to `>=1.10.0,<1.11.0`
 - Maintains `dbt-adapters>=1.10.1,<2.0` (dbt-adapters package version is independent of core minor)
+- No adapter Python or macro changes required — full unit and functional test matrix passes on 1.10.22
 
 ### Contributors
 - [@aabeds](https://github.com/aabeds)
