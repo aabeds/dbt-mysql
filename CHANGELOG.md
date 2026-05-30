@@ -1,5 +1,18 @@
 ## Unreleased (TBD)
 
+## dbt-mysql 1.9.0a1 (May 30, 2026)
+
+### Features
+- Support dbt v1.9 (upgrade branch `upgrade/1.9.0`)
+
+### Under the hood
+- Bump `dbt-core` to `~=1.9.0` and `dbt-tests-adapter` to `>=1.9.0,<1.10.0`
+- Bump `dbt-adapters` to `>=1.10.1,<2.0` (required by dbt-core 1.9; package version is independent of the core minor)
+- No adapter Python or macro changes required — full unit and functional test matrix passes on 1.9.10
+
+### Contributors
+- [@aabeds](https://github.com/aabeds)
+
 ## dbt-mysql 1.8.0a1 (May 30, 2026)
 
 ### Features
