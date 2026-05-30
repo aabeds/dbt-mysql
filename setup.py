@@ -51,7 +51,7 @@ def _get_dbt_core_version():
 
 
 package_name = "dbt-mysql"
-package_version = "1.8.0a1"
+package_version = "1.9.0a1"
 dbt_core_version = _get_dbt_core_version()
 description = """The MySQL adapter plugin for dbt"""
 
@@ -68,7 +68,7 @@ setup(
     include_package_data=True,
     install_requires=[
         "dbt-core~={}".format(dbt_core_version),
-        "dbt-adapters>=1.8.0,<1.9.0",
+        "dbt-adapters>=1.10.1,<2.0",
         "dbt-common>=1.0.4,<2.0",
         "mysql-connector-python>=8.0.0",
     ],
