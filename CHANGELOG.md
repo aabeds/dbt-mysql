@@ -1,5 +1,17 @@
 ## Unreleased (TBD)
 
+## dbt-mysql 1.10.0a1 (May 30, 2026)
+
+### Features
+- Support dbt v1.10 ([#181](https://github.com/dbeatty10/dbt-mysql/issues/181))
+
+### Under the hood
+- Bump `dbt-core` to `~=1.10.0` and `dbt-tests-adapter` to `>=1.10.0,<1.11.0`
+- Maintains `dbt-adapters>=1.10.1,<2.0` (dbt-adapters package version is independent of core minor)
+
+### Contributors
+- [@aabeds](https://github.com/aabeds)
+
 ## dbt-mysql 1.9.0a1 (May 30, 2026)
 
 ### Features
